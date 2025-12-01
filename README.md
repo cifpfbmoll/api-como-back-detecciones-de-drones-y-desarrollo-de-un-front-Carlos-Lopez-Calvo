@@ -1,240 +1,183 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/FpM8eaVc)
-# API REST de Detección de Drones con CodeIgniter 4
+## API de Detección de Drones Wi‑Fi
 
-API REST que funciona como orquestador central para un sistema de detección de drones Wi-Fi. Basado en el artículo [Detección de Drones Wi-Fi](https://medium.com/@noko_kelevra/detecci%C3%B3n-de-drones-wi-fi-64b9cbdef2a6).
+Aplicación completa (backend + frontend) para registrar detecciones de dispositivos Wi‑Fi (drones) y mostrarlas en un dashboard web.
 
-## Descripción
+### ¿Qué hace el proyecto?
 
-Esta API tiene dos responsabilidades principales:
-1. **Recibir datos de sensores**: Los scripts Python de detección envían información sobre direcciones MAC detectadas.
-2. **Servir datos al frontend**: Proporciona endpoints para un futuro panel de control/dashboard.
+- **Backend (API REST – CodeIgniter 4)**:
+  - Recibe detecciones desde scripts/sensores mediante `POST /api/v1/detections`.
+  - Guarda las detecciones en una base de datos **SQLite** (`writable/database.sqlite`).
+  - Enlaza cada MAC con un fabricante conocido según su OUI (`manufacturers`).
+  - Expone endpoints para:
+    - Listar detecciones (`GET /api/v1/detections`).
+    - Ver las últimas 5 detecciones (`GET /api/v1/detections/latest`).
+    - Listar fabricantes (`GET /api/v1/manufacturers`).
+    - Obtener estadísticas de alto nivel (`GET /api/v1/stats`).
 
-## Requisitos del Sistema
+- **Frontend (dashboard – carpeta `frontend`)**:
+  - Panel web oscuro y responsivo que consume la API.
+  - Muestra:
+    - Tarjetas con estadísticas globales.
+    - Tabla con las últimas detecciones.
+    - Lista de fabricantes conocidos.
+  - Se sirve como sitio estático (HTML/CSS/JS) detrás de **nginx**.
 
-- PHP 8.1 o superior
-- Composer
-- Extensiones PHP: `intl`, `mbstring`, `sqlite3`
+- **Base de datos**:
+  - `manufacturers`: fabricantes precargados mediante `ManufacturerSeeder`.
+  - `detections`: registros de cada detección de MAC procedente de los sensores.
 
-## Instalación
+---
 
-### 1. Clonar el repositorio
+## Cómo levantar TODO con Docker (recomendado para la entrega)
+
+### Requisitos
+
+- Docker y Docker Compose funcionando en tu máquina.
+
+### Pasos
+
+1. Ir a la carpeta del proyecto:
+
 ```bash
-git clone <url-del-repositorio>
-cd api-drones
+cd "/Users/carloslopez/Desktop/carpeta sin título/apidron/drones-api"
 ```
 
-### 2. Instalar dependencias
+2. Construir e iniciar los contenedores (API + frontend):
+
 ```bash
-composer install
+docker compose up --build
 ```
 
-### 3. Configurar el entorno
+Esto levanta:
+
+- **API (backend)** en `http://localhost:8080`
+- **Frontend (dashboard)** en `http://localhost:3000`
+
+3. Crear la base de datos SQLite dentro del contenedor de la API:
+
 ```bash
-cp env .env
+docker compose exec api touch writable/database.sqlite
 ```
 
-Editar el archivo `.env` con la siguiente configuración (ajustar la ruta absoluta):
-```ini
-CI_ENVIRONMENT = development
+4. Ejecutar las migraciones (crea tablas `manufacturers` y `detections`):
 
-app.baseURL = 'http://localhost:8080/'
-
-database.default.hostname = 
-database.default.database = /ruta/completa/al/proyecto/writable/database.sqlite
-database.default.DBDriver = SQLite3
-database.default.DBPrefix =
-```
-
-> **Nota**: SQLite requiere la ruta absoluta al archivo de base de datos.
-
-### 4. Crear archivo de base de datos
 ```bash
-touch writable/database.sqlite
+docker compose exec api php spark migrate --all
 ```
 
-### 5. Ejecutar migraciones
+5. Ejecutar el seeder de fabricantes:
+
 ```bash
-php spark migrate --all
+docker compose exec api php spark db:seed ManufacturerSeeder
 ```
 
-### 6. Ejecutar seeders (poblar base de datos con fabricantes)
+6. Asegurar permisos de escritura sobre la base de datos (por si fuera necesario):
+
 ```bash
-php spark db:seed ManufacturerSeeder
+docker compose exec api chown www-data:www-data writable/database.sqlite
+docker compose exec api chmod 664 writable/database.sqlite
 ```
 
-### 7. Iniciar el servidor de desarrollo
-```bash
-php spark serve
-```
+Con esto, la API y el dashboard quedan listos para usar.
 
-El servidor estará disponible en: `http://localhost:8080`
+---
 
-## Estructura de la Base de Datos
+## Endpoints principales de la API
 
-### Tabla `manufacturers`
-| Columna | Tipo | Descripción |
-|---------|------|-------------|
-| id | INTEGER (PK) | Identificador único |
-| oui | VARCHAR(8) | OUI del fabricante (ej: '60:60:1F') |
-| name | VARCHAR(255) | Nombre del fabricante |
-| created_at | DATETIME | Fecha de creación |
-| updated_at | DATETIME | Fecha de actualización |
+Base URL dentro de Docker: `http://localhost:8080/api/v1`
 
-### Tabla `detections`
-| Columna | Tipo | Descripción |
-|---------|------|-------------|
-| id | INTEGER (PK) | Identificador único |
-| mac_address | VARCHAR(17) | Dirección MAC completa |
-| manufacturer_id | INTEGER (FK) | Referencia a manufacturers (nullable) |
-| rssi | INTEGER | Intensidad de la señal |
-| sensor_location | VARCHAR(255) | Ubicación del sensor |
-| detected_at | DATETIME | Fecha/hora de detección |
-| created_at | DATETIME | Fecha de creación del registro |
+- **POST `/detections`**  
+  Registra una nueva detección.
 
-## Endpoints de la API
+  **Body JSON de ejemplo:**
 
-Base URL: `http://localhost:8080/api/v1`
-
-### POST /detections
-Registra una nueva detección de una dirección MAC.
-
-**Request Body:**
-```json
-{
+  ```json
+  {
     "mac": "60:60:1F:AA:BB:CC",
     "rssi": -50,
     "sensor_location": "Edificio A - Planta 3",
     "timestamp": "2024-01-15T10:30:00Z"
-}
-```
+  }
+  ```
 
-**Response (201 Created):**
-```json
-{
-    "status": 201,
-    "message": "Detección registrada correctamente.",
-    "data": {
-        "id": 1,
-        "mac_address": "60:60:1F:AA:BB:CC",
-        "manufacturer_id": 1,
-        "rssi": -50,
-        "sensor_location": "Edificio A - Planta 3",
-        "detected_at": "2024-01-15 10:30:00",
-        "created_at": "2024-01-15 10:30:05",
-        "manufacturer_name": "DJI Technology Co., Ltd."
-    }
-}
-```
+- **GET `/detections`**  
+  Lista paginada de detecciones.
 
-### GET /detections
-Lista paginada de detecciones.
+  **Parámetros opcionales:**
+  - `page` (int) – página (por defecto 1)
+  - `limit` (int) – resultados por página (máx. 100, por defecto 20)
+  - `manufacturer_id` (int) – filtrar por fabricante
+  - `location` (string) – filtrar por ubicación del sensor
 
-**Query Parameters:**
-| Parámetro | Tipo | Opcional | Default | Descripción |
-|-----------|------|----------|---------|-------------|
-| page | int | Sí | 1 | Página actual |
-| limit | int | Sí | 20 | Resultados por página (máx 100) |
-| manufacturer_id | int | Sí | - | Filtrar por fabricante |
-| location | string | Sí | - | Filtrar por ubicación del sensor |
+- **GET `/detections/latest`**  
+  Devuelve las 5 detecciones más recientes (para el dashboard).
 
-**Response (200 OK):**
-```json
-{
-    "status": 200,
-    "data": [...],
-    "pagination": {
-        "current_page": 1,
-        "per_page": 20,
-        "total": 100,
-        "total_pages": 5
-    }
-}
-```
+- **GET `/manufacturers`**  
+  Lista todos los fabricantes precargados (resultado del seeder).
 
-### GET /detections/latest
-Obtiene las 5 detecciones más recientes.
+- **GET `/stats`**  
+  Devuelve estadísticas para el dashboard:
+  - `total_detections`
+  - `known_drones_count`
+  - `unknown_devices_count`
+  - `top_manufacturer`
 
-**Response (200 OK):**
-```json
-{
-    "status": 200,
-    "data": [...]
-}
-```
+---
 
-### GET /manufacturers
-Lista de todos los fabricantes de drones conocidos.
+## Frontend (carpeta `frontend`)
 
-**Response (200 OK):**
-```json
-{
-    "status": 200,
-    "data": [
-        {
-            "id": 1,
-            "oui": "60:60:1F",
-            "name": "DJI Technology Co., Ltd.",
-            "created_at": "2024-01-15 10:00:00",
-            "updated_at": "2024-01-15 10:00:00"
-        }
-    ]
-}
-```
+El frontend es un dashboard estático (HTML/CSS/JS) que se conecta a la API:
 
-### GET /stats
-Estadísticas para el dashboard.
+- **`index.html`**: estructura de la página.
+- **`style.css`**: estilos con tema oscuro tipo panel de control.
+- **`main.js`**:
+  - Hace `fetch` a:
+    - `GET /api/v1/stats`
+    - `GET /api/v1/detections/latest`
+    - `GET /api/v1/manufacturers`
+  - Actualiza en tiempo real las tarjetas, la tabla de últimas detecciones y la lista de fabricantes.
 
-**Response (200 OK):**
-```json
-{
-    "status": 200,
-    "data": {
-        "total_detections": 1138,
-        "known_drones_count": 820,
-        "unknown_devices_count": 318,
-        "top_manufacturer": "DJI Technology Co., Ltd."
-    }
-}
-```
+Al ejecutar `docker compose up --build`, nginx sirve este frontend en `http://localhost:3000`.
 
-## Fabricantes Precargados (Seeder)
+---
 
-El seeder incluye OUIs de los siguientes fabricantes:
-- DJI Technology Co., Ltd. (varios OUIs)
-- Parrot SA / Parrot Drones SAS
-- Yuneec International
-- Espressif Inc. (común en drones DIY)
-- Raspberry Pi Foundation (drones DIY)
+## Simular detecciones (para pruebas y capturas)
 
-## Colección Postman
-
-Importa el archivo `Drone_Detection_API.postman_collection.json` en Postman para probar todos los endpoints.
-
-## Comandos Útiles
+Con los contenedores ya levantados:
 
 ```bash
-# Ejecutar migraciones
-php spark migrate --all
+# Detección 1
+curl -X POST "http://localhost:8080/api/v1/detections" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mac": "60:60:1F:AA:BB:CC",
+    "rssi": -50,
+    "sensor_location": "Edificio A - Planta 3",
+    "timestamp": "2024-01-15T10:30:00Z"
+  }'
 
-# Revertir migraciones
-php spark migrate:rollback
-
-# Ejecutar seeder
-php spark db:seed ManufacturerSeeder
-
-# Iniciar servidor
-php spark serve
-
-# Ver rutas disponibles
-php spark routes
+# Detección 2
+curl -X POST "http://localhost:8080/api/v1/detections" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mac": "60:60:1F:11:22:33",
+    "rssi": -42,
+    "sensor_location": "Edificio B - Azotea",
+    "timestamp": "2024-01-15T10:31:00Z"
+  }'
 ```
 
-## Tecnologías
+Tras enviar varias detecciones:
 
-- **Framework**: CodeIgniter 4.6
-- **Base de datos**: SQLite3
-- **PHP**: 8.1+
+- `GET http://localhost:8080/api/v1/stats` mostrará estadísticas actualizadas.
+- El dashboard en `http://localhost:3000` mostrará las nuevas filas en “Últimas detecciones” y actualizará las tarjetas de métricas.
 
-## Licencia
+---
 
-Proyecto educativo - Desarrollo en Entorno Servidor - 2º Grado en Ingeniería Informática
+## Tecnologías usadas
+
+- **Backend**: CodeIgniter 4 (PHP 8.2 en Docker).
+- **Base de datos**: SQLite3 (archivo `writable/database.sqlite`).
+- **Frontend**: HTML + CSS + JavaScript (fetch API).
+- **Infraestructura**: Docker + Docker Compose (Apache + PHP para la API, nginx para el frontend).
+

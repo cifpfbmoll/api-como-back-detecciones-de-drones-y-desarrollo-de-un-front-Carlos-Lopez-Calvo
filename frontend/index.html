@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Dashboard Detección de Drones</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Detección de Drones Wi‑Fi</h1>
+      <span class="tag">Frontend</span>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <h2>Estadísticas generales</h2>
+        <div class="stats-grid">
+          <div class="stat">
+            <span class="label">Detecciones totales</span>
+            <span id="stat-total" class="value">-</span>
+          </div>
+          <div class="stat">
+            <span class="label">Drones conocidos</span>
+            <span id="stat-known" class="value">-</span>
+          </div>
+          <div class="stat">
+            <span class="label">Dispositivos desconocidos</span>
+            <span id="stat-unknown" class="value">-</span>
+          </div>
+          <div class="stat">
+            <span class="label">Fabricante más detectado</span>
+            <span id="stat-top" class="value">-</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>Últimas detecciones</h2>
+          <button id="refresh-btn">Actualizar</button>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>MAC</th>
+                <th>Fabricante</th>
+                <th>RSSI</th>
+                <th>Ubicación sensor</th>
+                <th>Detectado</th>
+              </tr>
+            </thead>
+            <tbody id="latest-body">
+              <tr>
+                <td colspan="6" class="placeholder">
+                  Cargando datos...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Fabricantes conocidos</h2>
+        <ul id="manufacturers-list" class="manufacturers-list"></ul>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>API: <code>http://localhost:8080/api/v1</code></span>
+    </footer>
+
+    <script src="main.js"></script>
+  </body>
+  </html>
+
+
